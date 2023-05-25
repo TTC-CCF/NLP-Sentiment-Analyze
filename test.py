@@ -74,7 +74,14 @@ class BERTClass(torch.nn.Module):
         output = self.classifier(pooler)
         return output
 
-# Train
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+# rpc_init("172.30.17.166")
+model = BERTClass()
+model.to(device)
+
+loss_function = torch.nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(params =  model.parameters(), lr=0.4)
 
 def calculate_accu(big_idx, targets):
     n_correct = (big_idx==targets).sum().item()
@@ -86,7 +93,7 @@ def train():
     nb_tr_steps = 0
     nb_tr_examples = 0
     model.train()
-    for _ in tqdm(range(EPOCH)):
+    for _ in tqdm(range(10)):
         for _,data in enumerate(train_loader, 0):
             ids = data['input_ids'].to(device, dtype = torch.long)
             mask = data['attention_mask'].to(device, dtype = torch.long)
