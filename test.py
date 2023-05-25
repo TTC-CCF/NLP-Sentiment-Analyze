@@ -1,4 +1,11 @@
 from torch.utils.data import DataLoader
+from sklearn.model_selection import train_test_split
+from transformers import AutoTokenizer, BertModel
+import torch
+from tqdm import tqdm
+from params import BATCH_SIZE, LEARN_RATE, EPOCH
+# Mock data
+
 train_texts = ['Let’s go lakers',
     '8:30開始打嗎',
     '湖人隊加油湖人隊加油湖人隊加油湖人隊加油',
@@ -26,22 +33,12 @@ test_texts = ['勇士加油！阿是金塊',
               '上啊啊肥']
 test_labels = [2, 1, 0, 2, 0, 0, 1, 1, 2, 1, 2]
 
-from sklearn.model_selection import train_test_split
 train_texts, val_texts, train_labels, val_labels = train_test_split(train_texts, train_labels, test_size=.2)
 
 label2id = {0:'NONE', 1:'LAL', 2:'DEN'}
 id2label = {'NONE':0, 'LAL':1, 'DEN':2}
 
-# Tokenize data
-from transformers import AutoTokenizer
-import torch
-
-tokenizer = AutoTokenizer.from_pretrained("bert-base-chinese", num_labels=3, id2label=id2label, label2id=label2id)
-
-train_encodings = tokenizer(train_texts, truncation=True, padding=True)
-val_encodings = tokenizer(val_texts, truncation=True, padding=True)
-test_encodings = tokenizer(test_texts, truncation=True, padding=True)
-
+# Dataset Class
 
 class ReviewsDataset(torch.utils.data.Dataset):
     def __init__(self, encodings, labels):
@@ -56,14 +53,8 @@ class ReviewsDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.labels)
     
-train_dataset = ReviewsDataset(train_encodings, train_labels)
-val_dataset = ReviewsDataset(val_encodings, val_labels)
-test_dataset = ReviewsDataset(test_encodings, test_labels)
 
-train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=2, shuffle=True)
-
-from transformers import BertModel
+# Building Model
 
 class BERTClass(torch.nn.Module):
     def __init__(self):
@@ -83,14 +74,7 @@ class BERTClass(torch.nn.Module):
         output = self.classifier(pooler)
         return output
 
-
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-# rpc_init("172.30.17.166")
-model = BERTClass()
-model.to(device)
-
-loss_function = torch.nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(params =  model.parameters(), lr=0.4)
+# Train
 
 def calculate_accu(big_idx, targets):
     n_correct = (big_idx==targets).sum().item()
@@ -102,7 +86,7 @@ def train():
     nb_tr_steps = 0
     nb_tr_examples = 0
     model.train()
-    for _ in tqdm(range(10)):
+    for _ in tqdm(range(EPOCH)):
         for _,data in enumerate(train_loader, 0):
             ids = data['input_ids'].to(device, dtype = torch.long)
             mask = data['attention_mask'].to(device, dtype = torch.long)
@@ -111,7 +95,7 @@ def train():
             outputs = model(ids, mask)
             loss = loss_function(outputs, targets)
             tr_loss += loss.item()
-            big_val, big_idx = torch.max(outputs.data, dim=1)
+            big_idx = torch.argmax(outputs.data, dim=1)
             n_correct += calculate_accu(big_idx, targets)
     
             nb_tr_steps += 1
@@ -125,7 +109,6 @@ def train():
     
             optimizer.zero_grad()
             loss.backward()
-            # # When using GPU
             optimizer.step()
 
     print(f'The Total Accuracy: {(n_correct*100)/nb_tr_examples}')
@@ -136,6 +119,7 @@ def train():
 
     return 
 
+# Evaluate
 
 def valid(model, testing_loader):
     model.eval()
@@ -151,7 +135,7 @@ def valid(model, testing_loader):
             outputs = model(ids, mask)
             loss = loss_function(outputs, targets)
             tr_loss += loss.item()
-            big_val, big_idx = torch.max(outputs.data, dim=1)
+            big_idx = torch.argmax(outputs.data, dim=1)
             n_correct += calculate_accu(big_idx, targets)
 
             nb_tr_steps += 1
@@ -169,12 +153,35 @@ def valid(model, testing_loader):
     
     return epoch_accu
 
-from tqdm import tqdm
+# Driver
 
-train()
-torch.save(model, './results/runs/trained_model.bin')
+if __name__ == "__main__":
+    # Tokenize data
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-chinese", num_labels=3, id2label=id2label, label2id=label2id)
 
-test_model = torch.load('./results/runs/trained_model.bin')
-acc = valid(test_model, test_loader)
-print("Accuracy on test data = %0.2f%%" % acc)
-
+    train_encodings = tokenizer(train_texts, truncation=True, padding=True)
+    val_encodings = tokenizer(val_texts, truncation=True, padding=True)
+    test_encodings = tokenizer(test_texts, truncation=True, padding=True)
+    
+    # Transform to Dataset
+    train_dataset = ReviewsDataset(train_encodings, train_labels)
+    val_dataset = ReviewsDataset(val_encodings, val_labels)
+    test_dataset = ReviewsDataset(test_encodings, test_labels)
+    
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    
+    # Model
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model = BERTClass()
+    model.to(device)
+    loss_function = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(params =  model.parameters(), lr=LEARN_RATE)
+    
+    train()
+    torch.save(model, './results/trained_model.bin')
+    
+    test_model = torch.load('./results/trained_model.bin')
+    acc = valid(test_model, test_loader)
+    print("Accuracy on test data = %0.2f%%" % acc)
+    
