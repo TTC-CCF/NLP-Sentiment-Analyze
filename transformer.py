@@ -1,5 +1,9 @@
 import torch
-from transformers import BertTokenizer, BertForSequenceClassification, AdamW
+from transformers import (
+    BertTokenizer,
+    BertForSequenceClassification,
+    AdamW, 
+    logging)
 from torch.utils.data import DataLoader
 from params import LEARN_RATE, EPOCH, NUM_LABELS, BATCH_SIZE
 from transformers import get_scheduler
@@ -7,6 +11,7 @@ from tqdm import tqdm
 from loadData import readData
 from sklearn.model_selection import train_test_split
 
+logging.set_verbosity_error()
 
 model = BertForSequenceClassification.from_pretrained('bert-base-chinese', num_labels=NUM_LABELS)
 tokenizer = BertTokenizer.from_pretrained('bert-base-chinese', num_labels=NUM_LABELS)
