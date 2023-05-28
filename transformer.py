@@ -5,7 +5,7 @@ from transformers import (
     AdamW, 
     logging)
 from torch.utils.data import DataLoader
-from params import LEARN_RATE, EPOCH, NUM_LABELS, BATCH_SIZE
+from params import LEARN_RATE, EPOCH, NUM_LABELS, BATCH_SIZE, LabeltoTeamsDict
 from transformers import get_scheduler
 from tqdm import tqdm
 from loadData import readData
@@ -43,7 +43,7 @@ train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
 test_dataset = ReviewsDataset(test_encoded_inputs, test_labels)
 test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
-optimizer = AdamW(model.parameters(), lr=LEARN_RATE, no_deprecation_warning=True)
+optimizer = AdamW(model.parameters(), lr=LEARN_RATE)
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -93,22 +93,20 @@ def validate(test_model):
             
             acc += (big_idx==labels).sum().item()
             n += labels.size(0)
-    print(f"The total accuracy: {acc*100/n}%")
-    
+    print(f"The total accuracy: {acc*100/n}%")    
     
 if __name__ == '__main__':
-    train()
+    # train()
     with torch.no_grad():
         test_model = torch.load('./results/trained_model.bin')
         validate(test_model)
         
         # use custom test case
-        encoded = tokenizer(['阿肥加油!', '湖人一定輸阿'], padding = True, truncation=True)
-        input_ids = torch.tensor(encoded['input_ids'])
-        print(input_ids)
-        mask = torch.tensor(encoded['attention_mask'])
-        label = torch.tensor([[2, 2]])
+        encoded = tokenizer(['湖人', '勇士一定得贏的吧'], padding = True, truncation=True)
+        input_ids = torch.tensor(encoded['input_ids']).to(device)
+        mask = torch.tensor(encoded['attention_mask']).to(device)
+        label = torch.tensor([[16, 21]]).to(device)
         outputs = test_model(input_ids, attention_mask=mask, labels=label)
-        pred = torch.nn.functional.softmax(outputs.logits, dim=-1)
-        print(pred)
-        print(torch.argmax(pred, dim=1))
+        prob = torch.nn.functional.softmax(outputs.logits, dim=-1)
+        pred = list(torch.argmax(prob, dim=1).detach().cpu().numpy())
+        print([LabeltoTeamsDict[p] for p in pred])
