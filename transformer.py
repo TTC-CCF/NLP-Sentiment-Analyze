@@ -10,7 +10,7 @@ from transformers import get_scheduler
 from tqdm import tqdm
 from loadData import readData
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import matthews_corrcoef
+from sklearn.metrics import precision_score, recall_score
 
 logging.set_verbosity_error()
 
@@ -85,6 +85,8 @@ def validate(test_model):
     test_model.eval() 
     predict = []
     g_true = []
+    acc = 0
+    n = 0
     with torch.no_grad():
         for batch in test_loader:
             batch = {key: val.to(device) for key, val in batch.items()}
@@ -94,7 +96,11 @@ def validate(test_model):
             big_idx = torch.argmax(pred, dim=1)
             g_true += list(labels.detach().cpu().numpy())
             predict += list(big_idx.detach().cpu().numpy())
-    print('mcc:', matthews_corrcoef(g_true, predict))
+            acc += (labels==big_idx).sum().item()
+    print(f'Accuracy: {acc*100/n}%')
+    print('Precision score:', precision_score(g_true, predict))
+    print('Recall score:', recall_score(g_true, predict))
+    
     
 
 if __name__ == '__main__':
