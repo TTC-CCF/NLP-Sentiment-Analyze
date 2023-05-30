@@ -97,9 +97,10 @@ def validate(test_model):
             g_true += list(labels.detach().cpu().numpy())
             predict += list(big_idx.detach().cpu().numpy())
             acc += (labels==big_idx).sum().item()
+            n += len(big_idx)
     print(f'Accuracy: {acc*100/n}%')
-    print('Precision score:', precision_score(g_true, predict))
-    print('Recall score:', recall_score(g_true, predict))
+    print('Precision score:', precision_score(g_true, predict, average='macro'))
+    print('Recall score:', recall_score(g_true, predict, average='macro'))
     
     
 
