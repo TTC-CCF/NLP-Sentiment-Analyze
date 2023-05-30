@@ -10,7 +10,7 @@ from transformers import get_scheduler
 from tqdm import tqdm
 from loadData import readData
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import precision_score, recall_score
+from sklearn.metrics import classification_report
 
 logging.set_verbosity_error()
 
@@ -19,7 +19,7 @@ tokenizer = BertTokenizer.from_pretrained('bert-base-chinese', num_labels=NUM_LA
 
 reviews, labels = readData()
 
-train_texts, test_texts, train_labels, test_labels = train_test_split(reviews, labels, test_size=0.3)
+train_texts, test_texts, train_labels, test_labels = train_test_split(reviews, labels, test_size=0.4)
 
 
 class ReviewsDataset(torch.utils.data.Dataset):
@@ -97,9 +97,9 @@ def validate(test_model):
             g_true += list(labels.detach().cpu().numpy())
             predict += list(big_idx.detach().cpu().numpy())
             acc += (labels==big_idx).sum().item()
+            n += len(big_idx)
     print(f'Accuracy: {acc*100/n}%')
-    print('Precision score:', precision_score(g_true, predict))
-    print('Recall score:', recall_score(g_true, predict))
+    print(classification_report(g_true, predict))
     
     
 
