@@ -10,6 +10,7 @@ from transformers import get_scheduler
 from tqdm import tqdm
 from loadData import readData
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import matthews_corrcoef
 
 logging.set_verbosity_error()
 
@@ -19,6 +20,7 @@ tokenizer = BertTokenizer.from_pretrained('bert-base-chinese', num_labels=NUM_LA
 reviews, labels = readData()
 
 train_texts, test_texts, train_labels, test_labels = train_test_split(reviews, labels, test_size=0.3)
+
 
 class ReviewsDataset(torch.utils.data.Dataset):
     def __init__(self, encodings, labels):
@@ -77,12 +79,12 @@ def train():
             num_tr_step += 1
     
     print(f'Average loss: {total_loss/num_tr_step}')
-    torch.save(model, './results/trained_model.bin')
+    torch.save(model.state_dict(), './results/trained_model.bin')
 
 def validate(test_model):
     test_model.eval() 
-    acc = 0
-    n = 0
+    predict = []
+    g_true = []
     with torch.no_grad():
         for batch in test_loader:
             batch = {key: val.to(device) for key, val in batch.items()}
@@ -90,19 +92,21 @@ def validate(test_model):
             outputs = test_model(**batch)
             pred = torch.nn.functional.softmax(outputs.logits, dim=-1)
             big_idx = torch.argmax(pred, dim=1)
-            
-            acc += (big_idx==labels).sum().item()
-            n += labels.size(0)
-    print(f"The total accuracy: {acc*100/n}%")    
+            g_true += list(labels.detach().cpu().numpy())
+            predict += list(big_idx.detach().cpu().numpy())
+    print('mcc:', matthews_corrcoef(g_true, predict))
     
+
 if __name__ == '__main__':
     # train()
     with torch.no_grad():
-        test_model = torch.load('./results/trained_model.bin')
+        test_model = BertForSequenceClassification.from_pretrained('bert-base-chinese', num_labels=NUM_LABELS)
+        test_model.load_state_dict(torch.load('./results/trained_model.bin'))
+        test_model.to(device)
         validate(test_model)
         
         # use custom test case
-        encoded = tokenizer(['湖人', '勇士一定得贏的吧'], padding = True, truncation=True)
+        encoded = tokenizer(['湖人衝呀!', '勇士一定得贏的吧'], padding = True, truncation=True)
         input_ids = torch.tensor(encoded['input_ids']).to(device)
         mask = torch.tensor(encoded['attention_mask']).to(device)
         label = torch.tensor([[16, 21]]).to(device)
