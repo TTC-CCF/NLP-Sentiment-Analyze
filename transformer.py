@@ -104,7 +104,7 @@ def validate(test_model):
     
 
 if __name__ == '__main__':
-    # train()
+    train()
     with torch.no_grad():
         test_model = BertForSequenceClassification.from_pretrained('bert-base-chinese', num_labels=NUM_LABELS)
         test_model.load_state_dict(torch.load('./results/trained_model.bin'))

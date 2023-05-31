@@ -18,6 +18,7 @@ def readData():
             L = f.read()
             L = L.split('\n')
             L = [int(lab) for lab in L if lab != '']
+            L = map(lambda x: abs(x)+30 if x < 0 else x, L)
             labels += L
     
     return reviews, labels
