@@ -35,7 +35,7 @@ def readData():
                             new_review = review[0:index]+s+review[index+len(syn):]
                             augment_reviews.append(new_review)
                             augment_labels.append(label)
-        
+
     reviews += augment_reviews
     labels += augment_labels
     counter = collections.Counter(labels)

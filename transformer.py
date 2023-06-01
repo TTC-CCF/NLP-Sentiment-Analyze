@@ -83,7 +83,7 @@ def validate(test_model):
                 
             outputs = test_model(input_ids, attention_mask)
             pred = torch.nn.functional.softmax(outputs, dim=-1)
-            big_idx = torch.argmax(pred, dim=1)
+            big_idx = torch.argmax(pred, dim=-1)
             g_true += list(labels.detach().cpu().numpy())
             predict += list(big_idx.detach().cpu().numpy())
             
@@ -119,7 +119,7 @@ if __name__ == '__main__':
         num_training_steps=num_training_steps,
     )
     
-    train(model)
+    # train(model)
     
     with torch.no_grad():
         trained_state_dict = torch.load(save_path)
@@ -130,10 +130,12 @@ if __name__ == '__main__':
         validate(test_model)
         
         # use custom test case
-        encoded = tokenizer(['湖人衝呀!', '我覺得勇士會贏'], padding = True, truncation=True)
+        encoded = tokenizer(['太陽教練真的爛', '金塊這季進步很大，波特回歸補齊三分，勾登磨合了幾季這季也配合的不錯莫雷原本以為傷後會爛掉但看起來三分有以前的準度連季賽被別隊二陣血洗的爛替補也進入狀況了'], padding = True, truncation=True)
         input_ids = torch.tensor(encoded['input_ids']).to(device)
         attention_mask = torch.tensor(encoded['attention_mask']).to(device)
         outputs = test_model(input_ids, attention_mask)
-        prob = torch.nn.functional.softmax(outputs, dim=1)
+        print(outputs)
+        print(outputs.shape)
+        prob = torch.nn.functional.softmax(outputs, dim=-1)
         pred = list(torch.argmax(prob, dim=1).detach().cpu().numpy())
         print([LabeltoTeamsDict[p] for p in pred])
