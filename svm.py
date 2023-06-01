@@ -6,20 +6,12 @@ from transformers import AutoModel, AutoTokenizer
 import torch
 import pickle
 from params import LabeltoTeamsDict
-import collections
 
 model_name = 'xlm-roberta-base'
 feature_model = AutoModel.from_pretrained(model_name)
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
 reviews, labels = readData()
-counter = collections.Counter(labels)
-for c in counter.items():
-    if c[1] == 1:
-        for i, v in enumerate(labels):
-            if v == c[0]:
-                labels.remove(v)
-                reviews.remove(reviews[i])
                 
 encoded = tokenizer(reviews, padding='max_length', truncation=True, max_length=100, return_tensors='pt')
 

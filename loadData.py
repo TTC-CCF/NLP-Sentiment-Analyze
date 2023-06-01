@@ -1,4 +1,5 @@
 import os
+import collections
 
 reviews_file_path = './data/reviews'
 labels_file_path = './data/labels'
@@ -20,6 +21,14 @@ def readData():
             L = [int(lab) for lab in L if lab != '']
             L = map(lambda x: abs(x)+30 if x < 0 else x, L)
             labels += L
+    
+    counter = collections.Counter(labels)
+    for c in counter.items():
+        if c[1] == 1:
+            for i, v in enumerate(labels):
+                if v == c[0]:
+                    labels.remove(v)
+                    reviews.remove(reviews[i])
     
     return reviews, labels
     
