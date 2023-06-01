@@ -2,12 +2,13 @@ from sklearn import svm
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 from loadData import readData
-from transformers import AutoModel, AutoTokenizer
+from transformers import AutoModel, AutoTokenizer, logging
 import torch
 import pickle
-from params import LabeltoTeamsDict
+from params import LabeltoTeamsDict, model_name
 
-model_name = 'xlm-roberta-base'
+logging.set_verbosity_error()
+
 feature_model = AutoModel.from_pretrained(model_name)
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 

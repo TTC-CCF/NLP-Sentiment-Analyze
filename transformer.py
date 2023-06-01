@@ -1,11 +1,11 @@
 import torch
 from transformers import (
-    BertTokenizer,
-    BertForSequenceClassification,
+    AutoTokenizer,
+    AutoModel,
     AdamW, 
     logging)
 from torch.utils.data import DataLoader
-from params import LEARN_RATE, EPOCH, NUM_LABELS, BATCH_SIZE, LabeltoTeamsDict
+from params import LEARN_RATE, EPOCH, NUM_LABELS, BATCH_SIZE, LabeltoTeamsDict, model_name, save_path, hidden_layer_size
 from transformers import get_scheduler
 from tqdm import tqdm
 from loadData import readData
@@ -31,62 +31,69 @@ class FineTuneModel(torch.nn.Module):
     def __init__(self, num_labels):
         super(FineTuneModel, self).__init__()
         self.num_labels = num_labels
-        self.model = BertForSequenceClassification.from_pretrained('bert-base-chinese', num_labels=num_labels)
-        self.classifier = torch.nn.Linear(768, num_labels)
+        self.model = AutoModel.from_pretrained(model_name)
+        self.classifier = torch.nn.Linear(hidden_layer_size, num_labels)
+        self.lossFunc = torch.nn.CrossEntropyLoss()
+        self.optimizer = AdamW(self.model.parameters(), lr=LEARN_RATE)
+    
         torch.nn.init.xavier_normal_(self.classifier.weight)
         
-    def forward(self, **batch):
-        last_hidden_state = self.model(**batch)
+    def forward(self, input_ids, attention_mask):
+        last_hidden_state = self.model(input_ids, attention_mask)
+        last_hidden_state = torch.mean(last_hidden_state[0], 1)
         logit = self.classifier(last_hidden_state)
         logit = torch.nn.functional.relu(logit)
         return logit
 
-def train():
+def train(model):
     model.train()
     num_tr_step = 0
     total_loss = 0
     for _ in tqdm(range(EPOCH)):
         for batch in train_loader:
             batch = {key: val.to(device) for key, val in batch.items()}
-    
-            optimizer.zero_grad()
-            outputs = model(**batch)
-            loss = outputs.loss
+            input_ids = batch['input_ids']
+            attention_mask = batch['attention_mask']
+            labels = batch['labels']
+
+            model.optimizer.zero_grad()
+            outputs = model(input_ids, attention_mask)
+            loss = model.lossFunc(outputs, labels)
             total_loss += loss.item()
             
             loss.backward()
-            optimizer.step()
+            model.optimizer.step()
             lr_scheduler.step()
             num_tr_step += 1
     
     print(f'Average loss: {total_loss/num_tr_step}')
-    torch.save(model.state_dict(), './results/trained_model.bin')
+    torch.save(model.state_dict(), save_path)
 
 def validate(test_model):
     test_model.eval() 
     predict = []
     g_true = []
-    acc = 0
-    n = 0
+    
     with torch.no_grad():
         for batch in test_loader:
             batch = {key: val.to(device) for key, val in batch.items()}
+            input_ids = batch['input_ids']
+            attention_mask = batch['attention_mask']
             labels = batch['labels']
-            outputs = test_model(**batch)
-            pred = torch.nn.functional.softmax(outputs.logits, dim=-1)
+                
+            outputs = test_model(input_ids, attention_mask)
+            pred = torch.nn.functional.softmax(outputs, dim=-1)
             big_idx = torch.argmax(pred, dim=1)
             g_true += list(labels.detach().cpu().numpy())
             predict += list(big_idx.detach().cpu().numpy())
-            acc += (labels==big_idx).sum().item()
-            n += len(big_idx)
-    print(f'Accuracy: {acc*100/n}%')
+            
     print(classification_report(g_true, predict))
     
     
 
 if __name__ == '__main__':
     model = FineTuneModel(NUM_LABELS)
-    tokenizer = BertTokenizer.from_pretrained('bert-base-chinese', num_labels=NUM_LABELS)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, num_labels=NUM_LABELS)
     
     reviews, labels = readData()
     
@@ -99,10 +106,7 @@ if __name__ == '__main__':
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     
     test_dataset = ReviewsDataset(test_encoded_inputs, test_labels)
-    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    
-    optimizer = AdamW(model.parameters(), lr=LEARN_RATE)
-    
+    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)    
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
@@ -110,25 +114,26 @@ if __name__ == '__main__':
     num_training_steps = EPOCH * len(train_loader)
     lr_scheduler = get_scheduler(
         "linear",
-        optimizer=optimizer,
+        optimizer=model.optimizer,
         num_warmup_steps=0,
         num_training_steps=num_training_steps,
     )
     
-    train()
+    train(model)
     
     with torch.no_grad():
-        test_model = BertForSequenceClassification.from_pretrained('bert-base-chinese', num_labels=NUM_LABELS)
-        test_model.load_state_dict(torch.load('./results/trained_model.bin'))
+        trained_state_dict = torch.load(save_path)
+        test_model = FineTuneModel(trained_state_dict['classifier.weight'].size()[0])
+        test_model.load_state_dict(trained_state_dict)
         test_model.to(device)
+        
         validate(test_model)
         
         # use custom test case
-        encoded = tokenizer(['湖人衝呀!', '勇士一定得贏的吧'], padding = True, truncation=True)
+        encoded = tokenizer(['湖人衝呀!', '我覺得勇士會贏'], padding = True, truncation=True)
         input_ids = torch.tensor(encoded['input_ids']).to(device)
-        mask = torch.tensor(encoded['attention_mask']).to(device)
-        label = torch.tensor([[16, 21]]).to(device)
-        outputs = test_model(input_ids, attention_mask=mask, labels=label)
-        prob = torch.nn.functional.softmax(outputs.logits, dim=-1)
+        attention_mask = torch.tensor(encoded['attention_mask']).to(device)
+        outputs = test_model(input_ids, attention_mask)
+        prob = torch.nn.functional.softmax(outputs, dim=1)
         pred = list(torch.argmax(prob, dim=1).detach().cpu().numpy())
         print([LabeltoTeamsDict[p] for p in pred])
