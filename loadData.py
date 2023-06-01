@@ -1,5 +1,7 @@
 import os
 import collections
+from params import synonyms
+import random
 
 reviews_file_path = './data/reviews'
 labels_file_path = './data/labels'
@@ -22,6 +24,20 @@ def readData():
             L = map(lambda x: abs(x)+30 if x < 0 else x, L)
             labels += L
     
+    augment_reviews, augment_labels = [], []
+    for review, label in zip(reviews, labels):
+        for synonym in synonyms:
+            for syn in synonym:
+                index = review.find(syn)
+                if index != -1:
+                    for s in synonym:
+                        if s != syn:
+                            new_review = review[0:index]+s+review[index+len(syn):]
+                            augment_reviews.append(new_review)
+                            augment_labels.append(label)
+        
+    reviews += augment_reviews
+    labels += augment_labels
     counter = collections.Counter(labels)
     for c in counter.items():
         if c[1] == 1:
@@ -33,4 +49,4 @@ def readData():
     return reviews, labels
     
 if __name__ == '__main__':
-    print(readData())
+    readData()
