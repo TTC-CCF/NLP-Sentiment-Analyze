@@ -14,14 +14,6 @@ from sklearn.metrics import classification_report
 
 logging.set_verbosity_error()
 
-model = BertForSequenceClassification.from_pretrained('bert-base-chinese', num_labels=NUM_LABELS)
-tokenizer = BertTokenizer.from_pretrained('bert-base-chinese', num_labels=NUM_LABELS)
-
-reviews, labels = readData()
-
-train_texts, test_texts, train_labels, test_labels = train_test_split(reviews, labels, test_size=0.4)
-
-
 class ReviewsDataset(torch.utils.data.Dataset):
     def __init__(self, encodings, labels):
         self.encodings = encodings
@@ -34,31 +26,20 @@ class ReviewsDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.labels)
-
-train_encoded_inputs = tokenizer(train_texts, padding=True, truncation=True, return_tensors='pt')
-
-test_encoded_inputs = tokenizer(test_texts, padding=True, truncation=True, return_tensors='pt')
-
-train_dataset = ReviewsDataset(train_encoded_inputs, train_labels)
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-
-test_dataset = ReviewsDataset(test_encoded_inputs, test_labels)
-test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
-
-optimizer = AdamW(model.parameters(), lr=LEARN_RATE)
-
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model.to(device)
-
-
-num_training_steps = EPOCH * len(train_loader)
-lr_scheduler = get_scheduler(
-    "linear",
-    optimizer=optimizer,
-    num_warmup_steps=0,
-    num_training_steps=num_training_steps,
-)
+    
+class FineTuneModel(torch.nn.Module):
+    def __init__(self, num_labels):
+        super(FineTuneModel, self).__init__()
+        self.num_labels = num_labels
+        self.model = BertForSequenceClassification.from_pretrained('bert-base-chinese', num_labels=num_labels)
+        self.classifier = torch.nn.Linear(768, num_labels)
+        torch.nn.init.xavier_normal_(self.classifier.weight)
+        
+    def forward(self, **batch):
+        last_hidden_state = self.model(**batch)
+        logit = self.classifier(last_hidden_state)
+        logit = torch.nn.functional.relu(logit)
+        return logit
 
 def train():
     model.train()
@@ -104,7 +85,38 @@ def validate(test_model):
     
 
 if __name__ == '__main__':
+    model = FineTuneModel(NUM_LABELS)
+    tokenizer = BertTokenizer.from_pretrained('bert-base-chinese', num_labels=NUM_LABELS)
+    
+    reviews, labels = readData()
+    
+    train_texts, test_texts, train_labels, test_labels = train_test_split(reviews, labels, stratify=labels)
+    
+    train_encoded_inputs = tokenizer(train_texts, padding=True, truncation=True, return_tensors='pt')
+    test_encoded_inputs = tokenizer(test_texts, padding=True, truncation=True, return_tensors='pt')
+    
+    train_dataset = ReviewsDataset(train_encoded_inputs, train_labels)
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    
+    test_dataset = ReviewsDataset(test_encoded_inputs, test_labels)
+    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    
+    optimizer = AdamW(model.parameters(), lr=LEARN_RATE)
+    
+    
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+    
+    num_training_steps = EPOCH * len(train_loader)
+    lr_scheduler = get_scheduler(
+        "linear",
+        optimizer=optimizer,
+        num_warmup_steps=0,
+        num_training_steps=num_training_steps,
+    )
+    
     train()
+    
     with torch.no_grad():
         test_model = BertForSequenceClassification.from_pretrained('bert-base-chinese', num_labels=NUM_LABELS)
         test_model.load_state_dict(torch.load('./results/trained_model.bin'))
