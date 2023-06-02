@@ -33,15 +33,15 @@ with torch.no_grad():
 train_texts, test_texts, train_labels, test_labels = train_test_split(features, labels, stratify=labels)
 
 
-# clf = svm.SVC(kernel='linear')
-# clf.fit(train_texts, train_labels)
-# pickle.dump(clf, open('results/trained_svm_model.bin', 'wb'))
+clf = svm.SVC(kernel='linear')
+clf.fit(train_texts, train_labels)
+pickle.dump(clf, open('results/trained_svm_model.bin', 'wb'))
 
 loaded_clf = pickle.load(open('results/trained_svm_model.bin', 'rb'))
 pred = loaded_clf.predict(test_texts)
 print(classification_report(test_labels, pred))
 
-new_text = ['Curry', '湖人要贏了吧，金塊要怎麼贏?', '綠seafood要出招了']
+new_text = ['太陽最近很強喔', '湖人要贏了吧，金塊要怎麼贏?', '綠seafood要出招了']
 with torch.no_grad():
     encoded = tokenizer(new_text, padding='max_length', truncation=True, max_length=100, return_tensors='pt').to(device)
     feature = feature_model(**encoded).last_hidden_state

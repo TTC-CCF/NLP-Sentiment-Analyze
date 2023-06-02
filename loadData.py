@@ -24,6 +24,7 @@ def readData():
             L = map(lambda x: abs(x)+30 if x < 0 else x, L)
             labels += L
     
+    # Augmenting Data
     augment_reviews, augment_labels = [], []
     for review, label in zip(reviews, labels):
         for synonym in synonyms:
@@ -38,6 +39,8 @@ def readData():
 
     reviews += augment_reviews
     labels += augment_labels
+    
+    # Remove labels that only contain one review
     counter = collections.Counter(labels)
     for c in counter.items():
         if c[1] == 1:
@@ -49,4 +52,5 @@ def readData():
     return reviews, labels
     
 if __name__ == '__main__':
-    readData()
+    reviews, labels = readData()
+    print(len(reviews), len(labels))

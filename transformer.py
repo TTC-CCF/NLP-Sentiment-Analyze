@@ -119,7 +119,7 @@ if __name__ == '__main__':
         num_training_steps=num_training_steps,
     )
     
-    # train(model)
+    train(model)
     
     with torch.no_grad():
         trained_state_dict = torch.load(save_path)
