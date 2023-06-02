@@ -2,9 +2,9 @@ BATCH_SIZE = 30
 LEARN_RATE = 5e-5
 EPOCH = 10
 NUM_LABELS = 61
-model_name = 'bert-base-chinese'
+model_name = 'xlnet-base-cased'
 hidden_layer_size = 768
-save_path = './results/trained_model_bert_chinese.bin'
+save_path = './results/trained_model_xlnet.bin'
 
 LabeltoTeamsDict = {
     0: 'Irrelavant',

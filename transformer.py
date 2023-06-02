@@ -2,6 +2,8 @@ import torch
 from transformers import (
     AutoTokenizer,
     AutoModel,
+    XLNetModel,
+    BertModel,
     AdamW, 
     logging)
 from torch.utils.data import DataLoader
@@ -40,7 +42,7 @@ class FineTuneModel(torch.nn.Module):
     def __init__(self, num_labels):
         super(FineTuneModel, self).__init__()
         self.num_labels = num_labels
-        self.model = AutoModel.from_pretrained(model_name)
+        self.model = XLNetModel.from_pretrained(model_name, num_labels=num_labels)
         self.classifier = torch.nn.Linear(hidden_layer_size, num_labels)
         self.lossFunc = torch.nn.CrossEntropyLoss()
         self.optimizer = AdamW(self.model.parameters(), lr=LEARN_RATE)
