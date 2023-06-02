@@ -5,10 +5,19 @@ from transformers import (
     AdamW, 
     logging)
 from torch.utils.data import DataLoader
-from params import LEARN_RATE, EPOCH, NUM_LABELS, BATCH_SIZE, LabeltoTeamsDict, model_name, save_path, hidden_layer_size
+from params import (
+    LEARN_RATE,
+    EPOCH,
+    NUM_LABELS,
+    BATCH_SIZE,
+    LabeltoTeamsDict,
+    model_name,
+    save_path,
+    hidden_layer_size,
+    )
 from transformers import get_scheduler
 from tqdm import tqdm
-from loadData import readData
+from loadData import readData, dataAugmention
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 
@@ -98,14 +107,15 @@ if __name__ == '__main__':
     reviews, labels = readData()
     
     train_texts, test_texts, train_labels, test_labels = train_test_split(reviews, labels, stratify=labels)
+    train_texts, train_labels = dataAugmention(train_texts, train_labels)
     
-    train_encoded_inputs = tokenizer(train_texts, padding=True, truncation=True, return_tensors='pt')
-    test_encoded_inputs = tokenizer(test_texts, padding=True, truncation=True, return_tensors='pt')
+    train_encoded = tokenizer(train_texts, padding=True, truncation=True, return_tensors='pt')
+    test_encoded = tokenizer(test_texts, padding=True, truncation=True, return_tensors='pt')
     
-    train_dataset = ReviewsDataset(train_encoded_inputs, train_labels)
+    train_dataset = ReviewsDataset(train_encoded, train_labels)
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     
-    test_dataset = ReviewsDataset(test_encoded_inputs, test_labels)
+    test_dataset = ReviewsDataset(test_encoded, test_labels)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)    
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -130,12 +140,11 @@ if __name__ == '__main__':
         validate(test_model)
         
         # use custom test case
-        encoded = tokenizer(['太陽教練真的爛', '金塊這季進步很大，波特回歸補齊三分，勾登磨合了幾季這季也配合的不錯莫雷原本以為傷後會爛掉但看起來三分有以前的準度連季賽被別隊二陣血洗的爛替補也進入狀況了'], padding = True, truncation=True)
+        inference = ['太陽教練真的爛', '金塊這季進步很大，波特回歸補齊三分，勾登磨合了幾季這季也配合的不錯莫雷原本以為傷後會爛掉但看起來三分有以前的準度連季賽被別隊二陣血洗的爛替補也進入狀況了']
+        encoded = tokenizer(inference, padding = True, truncation=True, return_tensors='pt')
         input_ids = torch.tensor(encoded['input_ids']).to(device)
         attention_mask = torch.tensor(encoded['attention_mask']).to(device)
         outputs = test_model(input_ids, attention_mask)
-        print(outputs)
-        print(outputs.shape)
         prob = torch.nn.functional.softmax(outputs, dim=-1)
         pred = list(torch.argmax(prob, dim=1).detach().cpu().numpy())
         print([LabeltoTeamsDict[p] for p in pred])
