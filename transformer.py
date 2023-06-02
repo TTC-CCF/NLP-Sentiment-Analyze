@@ -1,8 +1,9 @@
 import torch
 from transformers import (
     AutoTokenizer,
+    XLNetTokenizer,
     AutoModel,
-    XLNetModel,
+    XLNetForSequenceClassification,
     BertModel,
     AdamW, 
     logging)
@@ -38,44 +39,45 @@ class ReviewsDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.labels)
     
-class FineTuneModel(torch.nn.Module):
-    def __init__(self, num_labels):
-        super(FineTuneModel, self).__init__()
-        self.num_labels = num_labels
-        self.model = XLNetModel.from_pretrained(model_name, num_labels=num_labels)
-        self.classifier = torch.nn.Linear(hidden_layer_size, num_labels)
-        self.lossFunc = torch.nn.CrossEntropyLoss()
-        self.optimizer = AdamW(self.model.parameters(), lr=LEARN_RATE)
+# class FineTuneModel(torch.nn.Module):
+#     def __init__(self, num_labels):
+#         super(FineTuneModel, self).__init__()
+#         self.num_labels = num_labels
+#         self.model = XLNetModel.from_pretrained(model_name, num_labels=num_labels)
+#         self.classifier = torch.nn.Linear(hidden_layer_size, num_labels)
+#         self.lossFunc = torch.nn.CrossEntropyLoss()
+#         self.optimizer = AdamW(self.model.parameters(), lr=LEARN_RATE)
     
-        torch.nn.init.xavier_normal_(self.classifier.weight)
+#         torch.nn.init.xavier_normal_(self.classifier.weight)
         
-    def forward(self, input_ids, attention_mask):
-        last_hidden_state = self.model(input_ids, attention_mask)
-        last_hidden_state = torch.mean(last_hidden_state[0], 1)
-        logit = self.classifier(last_hidden_state)
-        logit = torch.nn.functional.relu(logit)
-        return logit
+#     def forward(self, input_ids, attention_mask):
+#         last_hidden_state = self.model(input_ids, attention_mask)
+#         last_hidden_state = torch.mean(last_hidden_state[0], 1)
+#         logit = self.classifier(last_hidden_state)
+#         logit = torch.nn.functional.relu(logit)
+#         return logit
 
 def train(model):
     model.train()
     num_tr_step = 0
     total_loss = 0
-    for _ in tqdm(range(EPOCH)):
+    for iter in tqdm(range(EPOCH)):
+        per_epoch_loss = 0
         for batch in train_loader:
             batch = {key: val.to(device) for key, val in batch.items()}
-            input_ids = batch['input_ids']
-            attention_mask = batch['attention_mask']
-            labels = batch['labels']
+            
 
-            model.optimizer.zero_grad()
-            outputs = model(input_ids, attention_mask)
-            loss = model.lossFunc(outputs, labels)
-            total_loss += loss.item()
+            optimizer.zero_grad()
+            outputs = model(**batch)
+            loss = outputs.loss
+            per_epoch_loss += loss.item()
             
             loss.backward()
-            model.optimizer.step()
+            optimizer.step()
             lr_scheduler.step()
             num_tr_step += 1
+        print(f'Epoch {iter+1} loss: {per_epoch_loss}')
+        total_loss += per_epoch_loss
     
     print(f'Average loss: {total_loss/num_tr_step}')
     torch.save(model.state_dict(), save_path)
@@ -88,12 +90,9 @@ def validate(test_model):
     with torch.no_grad():
         for batch in test_loader:
             batch = {key: val.to(device) for key, val in batch.items()}
-            input_ids = batch['input_ids']
-            attention_mask = batch['attention_mask']
-            labels = batch['labels']
-                
-            outputs = test_model(input_ids, attention_mask)
-            pred = torch.nn.functional.softmax(outputs, dim=-1)
+            
+            outputs = test_model(**batch)
+            pred = torch.nn.functional.softmax(outputs.logits, dim=-1)
             big_idx = torch.argmax(pred, dim=-1)
             g_true += list(labels.detach().cpu().numpy())
             predict += list(big_idx.detach().cpu().numpy())
@@ -103,8 +102,8 @@ def validate(test_model):
     
 
 if __name__ == '__main__':
-    model = FineTuneModel(NUM_LABELS)
-    tokenizer = AutoTokenizer.from_pretrained(model_name, num_labels=NUM_LABELS)
+    model = XLNetForSequenceClassification.from_pretrained(model_name, num_labels=NUM_LABELS)
+    tokenizer = XLNetTokenizer.from_pretrained(model_name)
     
     reviews, labels = readData()
     
@@ -123,10 +122,12 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
     
+    optimizer = AdamW(model.parameters(), lr=LEARN_RATE)
+    
     num_training_steps = EPOCH * len(train_loader)
     lr_scheduler = get_scheduler(
         "linear",
-        optimizer=model.optimizer,
+        optimizer=optimizer,
         num_warmup_steps=0,
         num_training_steps=num_training_steps,
     )
@@ -135,7 +136,7 @@ if __name__ == '__main__':
     
     with torch.no_grad():
         trained_state_dict = torch.load(save_path)
-        test_model = FineTuneModel(trained_state_dict['classifier.weight'].size()[0])
+        test_model = XLNetForSequenceClassification.from_pretrained(model_name, num_labels=NUM_LABELS)
         test_model.load_state_dict(trained_state_dict)
         test_model.to(device)
         
