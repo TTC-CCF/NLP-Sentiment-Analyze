@@ -52,6 +52,14 @@ def dataAugmention(reviews, labels):
     labels += augment_labels
     
     return reviews, labels
+
+def mergeTextLabels(reviews, labels):
+    with open('./data/data_for_augment/before.txt', 'w+', encoding='utf-8') as file:
+        for review, label in zip(reviews, labels):
+            row = str(label)+'\t'+review+'\n'
+            file.write(row)
+        
     
 if __name__ == '__main__':
     reviews, labels = readData()
+    mergeTextLabels(reviews, labels)

@@ -94,7 +94,7 @@ def validate(test_model):
             outputs = test_model(**batch)
             pred = torch.nn.functional.softmax(outputs.logits, dim=-1)
             big_idx = torch.argmax(pred, dim=-1)
-            g_true += list(labels.detach().cpu().numpy())
+            g_true += batch['labels']
             predict += list(big_idx.detach().cpu().numpy())
             
     print(classification_report(g_true, predict))
@@ -132,7 +132,7 @@ if __name__ == '__main__':
         num_training_steps=num_training_steps,
     )
     
-    train(model)
+    # train(model)
     
     with torch.no_grad():
         trained_state_dict = torch.load(save_path)
@@ -145,9 +145,9 @@ if __name__ == '__main__':
         # use custom test case
         inference = ['太陽教練真的爛', '金塊這季進步很大，波特回歸補齊三分，勾登磨合了幾季這季也配合的不錯莫雷原本以為傷後會爛掉但看起來三分有以前的準度連季賽被別隊二陣血洗的爛替補也進入狀況了']
         encoded = tokenizer(inference, padding = True, truncation=True, return_tensors='pt')
-        input_ids = torch.tensor(encoded['input_ids']).to(device)
-        attention_mask = torch.tensor(encoded['attention_mask']).to(device)
+        input_ids = encoded['input_ids'].to(device)
+        attention_mask = encoded['attention_mask'].to(device)
         outputs = test_model(input_ids, attention_mask)
-        prob = torch.nn.functional.softmax(outputs, dim=-1)
+        prob = torch.nn.functional.softmax(outputs.logits, dim=-1)
         pred = list(torch.argmax(prob, dim=1).detach().cpu().numpy())
         print([LabeltoTeamsDict[p] for p in pred])
