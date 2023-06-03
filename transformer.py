@@ -1,9 +1,10 @@
 import torch
 from transformers import (
-    XLNetTokenizer,
-    XLNetForSequenceClassification,
+    AutoTokenizer,
+    AutoModelForSequenceClassification,
     AdamW, 
-    logging)
+    logging,
+    )
 from torch.utils.data import DataLoader
 from params import (
     LEARN_RATE,
@@ -13,7 +14,6 @@ from params import (
     LabeltoTeamsDict,
     model_name,
     save_path,
-    hidden_layer_size,
     )
 from tqdm import tqdm
 from loadData import readData, dataAugmentation
@@ -22,10 +22,8 @@ from sklearn.metrics import classification_report
 
 logging.set_verbosity_error()
 
-model = XLNetForSequenceClassification.from_pretrained(model_name, num_labels=NUM_LABELS)
-tokenizer = XLNetTokenizer.from_pretrained(model_name)
-    
-
+model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=NUM_LABELS)
+tokenizer = AutoTokenizer.from_pretrained(model_name)
 
 class ReviewsDataset(torch.utils.data.Dataset):
     def __init__(self, encodings, labels):
@@ -48,8 +46,7 @@ def train(model, train_loader):
         per_epoch_loss = 0
         for batch in train_loader:
             batch = {key: val.to(device) for key, val in batch.items()}
-            
-
+        
             optimizer.zero_grad()
             outputs = model(**batch)
             loss = outputs.loss
@@ -121,7 +118,7 @@ if __name__ == '__main__':
      
     with torch.no_grad():
         trained_state_dict = torch.load(save_path)
-        test_model = XLNetForSequenceClassification.from_pretrained(model_name, num_labels=NUM_LABELS)
+        test_model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=NUM_LABELS)
         test_model.load_state_dict(trained_state_dict)
         test_model.to(device)
         
