@@ -16,7 +16,7 @@ from params import (
     save_path,
     )
 from tqdm import tqdm
-from loadData import readData, dataAugmentation
+from loadData import readData, dataAugmentation, loadValidate
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 
@@ -87,6 +87,7 @@ def preProcessing(reviews, labels):
 if __name__ == '__main__':
     
     teams_reviews, sent_reviews, teams_labels, sent_labels = readData()
+    v_reviews, v_teams_labels, v_sent_labels = loadValidate()
     
     teams = train_test_split(teams_reviews, teams_labels, stratify=teams_labels)
     sent = train_test_split(sent_reviews, sent_labels, stratify=sent_labels)
@@ -107,6 +108,8 @@ if __name__ == '__main__':
     train_sent_loader = preProcessing(train_sent_texts, train_sent_labels)
     test_sent_loader = preProcessing(test_sent_texts, test_sent_labels)
     
+    validate_teams_loader = preProcessing(v_reviews, v_teams_labels)
+    validate_sent_loader = preProcessing(v_reviews, v_sent_labels)
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
@@ -123,6 +126,10 @@ if __name__ == '__main__':
         test_model.to(device)
         
         print('Testing...')
+        validate(test_model, test_teams_loader)
+        
+        
+        print('Testing on validate data...')
         validate(test_model, test_teams_loader)
         
         # use custom test case

@@ -65,13 +65,32 @@ def dataAugmentation(reviews, labels):
             new_labels.append(l)
     return new_reviews, new_labels
 
+def loadValidate():
+    validate_reviews_path = './data/validate/reviews'
+    validate_labels_path = './data/validate/labels'
+    reviews_files = os.listdir(validate_reviews_path)
+    labels_files = os.listdir(validate_labels_path)
+    reviews, teams_labels, sent_labels = [], [], []
+            
+    for review_file, label_file in zip(reviews_files, labels_files):
+        with open(os.path.join(validate_reviews_path, review_file), 'r', encoding='utf-8') as f:
+            text = f.read()
+            text = text.split('\n')
+            text = [word for word in text if word != '']
+            reviews += text
+        with open(os.path.join(validate_labels_path, label_file), 'r', encoding='utf-8') as f:
+            L = f.read()
+            L = L.split('\n')
+            L = [int(lab) for lab in L if lab != '']
+            teams = list(map(lambda x: abs(x), L))
+            sent = list(map(lambda x: 1 if x > 0 else (2 if x < 0 else 0), L))
+            
+            teams_labels += teams
+            sent_labels += sent
+    return reviews, teams_labels, sent_labels
 
-def mergeTextLabels(reviews, labels):
-    texts = []
-    for review, label in zip(reviews, labels):
-        row = str(label)+'\t'+review+'\n'
-        texts.append(row)
-    return texts
+
     
 if __name__ == '__main__':
     teams_reviews, sent_reviews, teams_labels, sent_labels = readData()
+    print(loadValidate()[0])
