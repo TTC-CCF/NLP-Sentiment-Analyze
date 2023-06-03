@@ -74,7 +74,6 @@ def train(model):
             
             loss.backward()
             optimizer.step()
-            lr_scheduler.step()
             num_tr_step += 1
         print(f'Epoch {iter+1} loss: {per_epoch_loss}')
         total_loss += per_epoch_loss
@@ -94,7 +93,7 @@ def validate(test_model):
             outputs = test_model(**batch)
             pred = torch.nn.functional.softmax(outputs.logits, dim=-1)
             big_idx = torch.argmax(pred, dim=-1)
-            g_true += batch['labels']
+            g_true += list(batch['labels'].detach().cpu().numpy())
             predict += list(big_idx.detach().cpu().numpy())
             
     print(classification_report(g_true, predict))
@@ -105,10 +104,15 @@ if __name__ == '__main__':
     model = XLNetForSequenceClassification.from_pretrained(model_name, num_labels=NUM_LABELS)
     tokenizer = XLNetTokenizer.from_pretrained(model_name)
     
-    reviews, labels = readData()
-    
+    reviews, labels = [], []
+    with open('./data/train_augmented.txt', 'r', encoding='utf-8') as file:
+        for line in file.readlines():
+            l, r = line.split('\t')
+            labels.append(int(l))
+            reviews.append(r)
+    # reviews, labels = dataAugmention(reviews, labels)
+    print(f'Number of Data: {len(reviews)}')
     train_texts, test_texts, train_labels, test_labels = train_test_split(reviews, labels, stratify=labels)
-    train_texts, train_labels = dataAugmention(train_texts, train_labels)
     
     train_encoded = tokenizer(train_texts, padding=True, truncation=True, return_tensors='pt')
     test_encoded = tokenizer(test_texts, padding=True, truncation=True, return_tensors='pt')
@@ -125,12 +129,7 @@ if __name__ == '__main__':
     optimizer = AdamW(model.parameters(), lr=LEARN_RATE)
     
     num_training_steps = EPOCH * len(train_loader)
-    lr_scheduler = get_scheduler(
-        "linear",
-        optimizer=optimizer,
-        num_warmup_steps=0,
-        num_training_steps=num_training_steps,
-    )
+    
     
     # train(model)
     
@@ -143,7 +142,7 @@ if __name__ == '__main__':
         validate(test_model)
         
         # use custom test case
-        inference = ['太陽教練真的爛', '金塊這季進步很大，波特回歸補齊三分，勾登磨合了幾季這季也配合的不錯莫雷原本以為傷後會爛掉但看起來三分有以前的準度連季賽被別隊二陣血洗的爛替補也進入狀況了']
+        inference = ['太陽', '賽爾提克', '金塊這季進步很大，波特回歸補齊三分，勾登磨合了幾季這季也配合的不錯莫雷原本以為傷後會爛掉但看起來三分有以前的準度連季賽被別隊二陣血洗的爛替補也進入狀況了']
         encoded = tokenizer(inference, padding = True, truncation=True, return_tensors='pt')
         input_ids = encoded['input_ids'].to(device)
         attention_mask = encoded['attention_mask'].to(device)
