@@ -8,6 +8,7 @@ import jieba
 import synonyms
 import random
 from random import shuffle
+from params import nba_synonyms
 
 random.seed(2019)
 
@@ -51,7 +52,11 @@ def synonym_replacement(words, n):
     return new_words
 
 def get_synonyms(word):
-    return synonyms.nearby(word)[0]
+    normal_synonyms = synonyms.nearby(word)[0]
+    for w in nba_synonyms:
+        if word in w:
+            return w + normal_synonyms
+    return normal_synonyms
 
 
 ########################################################################

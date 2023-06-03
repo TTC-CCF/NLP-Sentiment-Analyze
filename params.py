@@ -6,6 +6,12 @@ model_name = 'xlnet-base-cased'
 hidden_layer_size = 768
 save_path = './results/trained_model_xlnet.bin'
 
+LabeltoSentDict = {
+    0: 'Neutral or Irrelavant',
+    1: 'Positive',
+    2: 'Negative'
+}
+
 LabeltoTeamsDict = {
     0: 'Irrelavant',
     1: 'Milwaukee Bucks',
@@ -38,39 +44,9 @@ LabeltoTeamsDict = {
     28: 'Portland Trail Blazers',
     29: 'Houston Rockets',
     30: 'San Antonio Spurs'
-    # 31: 'Negative Milwaukee Bucks',
-    # 32: 'Negative Boston Celtics',
-    # 33: 'Negative Philadelphia 76ers',
-    # 34: 'Negative Cleveland Cavaliers',
-    # 35: 'Negative New York Knicks',
-    # 36: 'Negative Brooklyn Nets',
-    # 37: 'Negative Atlanta Hawks',
-    # 38: 'Negative Miami Heat',
-    # 39: 'Negative Toronto Raptors',
-    # 40: 'Negative Chicago Bulls',
-    # 41: 'Negative Indiana Pacers',
-    # 42: 'Negative Washigton Wizards', 
-    # 43: 'Negative Orlando Magic',
-    # 44: 'Negative Charlotte Hornets',
-    # 45: 'Negative Detroit Pistons',
-    # 46: 'Negative Denver Nuggets',
-    # 47: 'Negative Memphis Grizzlies',
-    # 48: 'Negative Sacramento Kings',
-    # 49: 'Negative Phoenix Suns',
-    # 50: 'Negative LA Clippers',
-    # 51: 'Negative Golden State Warriors',
-    # 52: 'Negative Los Angeles Lakers',
-    # 53: 'Negative Minnesota Timberwolves',
-    # 54: 'Negative New Orleans Pelicans',
-    # 55: 'Negative Oklahoma City Thunder',
-    # 56: 'Negative Dallas Mavericks',
-    # 57: 'Negative Utah Jazz',
-    # 58: 'Negative Portland Trail Blazers',
-    # 59: 'Negative Houston Rockets',
-    # 60: 'Negative San Antonio Spurs'
 }
 
-synonyms = [
+nba_synonyms = [
     ['嘴綠', 'Green', 'Draymond Green', '格林', '綠師傅', '綠seafood', '母獅', '姆斯', '姆姆', '姆', '喇叭'],
     ['Lebron', 'Lebron James', '18詹', 'LBJ', 'lbj', '喇叭詹', '老詹', '詹皇', '老漢'],
     ['勇', '勇士'],

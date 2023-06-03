@@ -1,7 +1,9 @@
 import os
 import collections
-from params import synonyms
-import random
+import copy
+from eda import eda
+
+
 
 reviews_file_path = './data/reviews'
 labels_file_path = './data/labels'
@@ -9,57 +11,67 @@ def readData():
     reviews_files = os.listdir(reviews_file_path)
     labels_files = os.listdir(labels_file_path)
     reviews = []
-    labels = []
-    for file in reviews_files:
-        with open(os.path.join(reviews_file_path, file), 'r', encoding='utf-8') as f:
+    teams_labels = []
+    sent_labels = []
+    for review_file, label_file in zip(reviews_files, labels_files):
+        with open(os.path.join(reviews_file_path, review_file), 'r', encoding='utf-8') as f:
             text = f.read()
             text = text.split('\n')
             text = [word for word in text if word != '']
             reviews += text
-    for file in labels_files:
-        with open(os.path.join(labels_file_path, file), 'r', encoding='utf-8') as f:
+        with open(os.path.join(labels_file_path, label_file), 'r', encoding='utf-8') as f:
             L = f.read()
             L = L.split('\n')
             L = [int(lab) for lab in L if lab != '']
-            L = map(lambda x: abs(x), L)
-            labels += L    
+            teams = list(map(lambda x: abs(x), L))
+            sent = list(map(lambda x: 1 if x > 0 else (2 if x < 0 else 0), L))
+            
+            teams_labels += teams
+            sent_labels += sent
+            
+        print(f'{review_file} contains {len(text)} reviews, {len(teams)} labels')
+        
+            
     
     # Remove labels that only contain one review
-    counter = collections.Counter(labels)
-    for c in counter.items():
+    temp = copy.deepcopy(reviews)
+    teams_reviews, sent_reviews = [], []
+    teams_counter = collections.Counter(teams_labels)
+    sent_counter = collections.Counter(sent_labels)
+    for c in teams_counter.items():
         if c[1] == 1:
-            for i, v in enumerate(labels):
+            for i, v in enumerate(teams_labels):
                 if v == c[0]:
-                    labels.remove(v)
-                    reviews.remove(reviews[i])
+                    teams_labels.remove(v)
+                    temp.remove(temp[i])
+    teams_reviews = copy.deepcopy(temp)
+    temp = copy.deepcopy(reviews)
+    for c in sent_counter.items():
+        if c[1] == 1:
+            for i, v in enumerate(sent_labels):
+                if v == c[0]:
+                    sent_labels.remove(v)
+                    temp.remove(temp[i])
+    sent_reviews = copy.deepcopy(temp)
     
-    return reviews, labels
+    return teams_reviews, sent_reviews, teams_labels, sent_labels
 
-def dataAugmention(reviews, labels):
-    augment_reviews, augment_labels = [], []
-    for review, label in zip(reviews, labels):
-        for synonym in synonyms:
-            for syn in synonym:
-                index = review.find(syn)
-                if index != -1:
-                    for s in synonym:
-                        if s != syn:
-                            new_review = review[0:index]+s+review[index+len(syn):]
-                            augment_reviews.append(new_review)
-                            augment_labels.append(label)
+def dataAugmentation(reviews, labels):
+    new_reviews, new_labels = [], []
+    for r, l in zip(reviews, labels):
+        augmented_reviews = eda(r, num_aug=10)
+        for ar in augmented_reviews:
+            new_reviews.append(ar)
+            new_labels.append(l)
+    return new_reviews, new_labels
 
-    reviews += augment_reviews
-    labels += augment_labels
-    
-    return reviews, labels
 
 def mergeTextLabels(reviews, labels):
-    with open('./data/data_for_augment/before.txt', 'w+', encoding='utf-8') as file:
-        for review, label in zip(reviews, labels):
-            row = str(label)+'\t'+review+'\n'
-            file.write(row)
-        
+    texts = []
+    for review, label in zip(reviews, labels):
+        row = str(label)+'\t'+review+'\n'
+        texts.append(row)
+    return texts
     
 if __name__ == '__main__':
-    reviews, labels = readData()
-    mergeTextLabels(reviews, labels)
+    teams_reviews, sent_reviews, teams_labels, sent_labels = readData()

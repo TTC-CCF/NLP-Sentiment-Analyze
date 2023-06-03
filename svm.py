@@ -1,87 +1,84 @@
 from sklearn import svm
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
-from sklearn.feature_extraction.text import TfidfVectorizer ,CountVectorizer
-from loadData import readData, dataAugmention
-from transformers import AutoModel, AutoTokenizer, logging
-import torch
+from sklearn.feature_extraction.text import TfidfVectorizer
+from loadData import readData, dataAugmentation
 import pickle
 import jieba
-from params import LabeltoTeamsDict, model_name, BATCH_SIZE
-
-logging.set_verbosity_error()
-
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-feature_model = AutoModel.from_pretrained('bert-base-chinese')
-tokenizer = AutoTokenizer.from_pretrained('bert-base-chinese')
-feature_model.to(device)
-
-def extractFeatures(texts):
-    encoded = tokenizer(texts, padding='max_length', truncation=True, max_length=100, return_tensors='pt')
-    encoded.to(device)
-    with torch.no_grad():
-        features = []
-        for step in range(0, len(texts), BATCH_SIZE):
-            input_ids = encoded['input_ids'][step: step+BATCH_SIZE]
-            attention_mask = encoded['attention_mask'][step: step+BATCH_SIZE]
-            outputs = feature_model(input_ids, attention_mask).last_hidden_state
-            outputs = outputs.detach().cpu().numpy().reshape(outputs.shape[0], -1)
-            for output in outputs:
-                features.append(output)
-    print(f'Extracted {len(features)} features')
-    return features
-
-def encodeTexts(texts):
-    return tokenizer(texts, padding='max_length', truncation=True, max_length=100, return_tensors='pt')['input_ids']
+import os
+from params import LabeltoTeamsDict, BATCH_SIZE, LabeltoSentDict
 
 
+def preProcessing(reviews):
+    processed = []
+    for r in reviews:
+        seg = ' '.join(jieba.cut(r))
+        processed.append(seg)
+    
+    return processed
+        
 if __name__ == '__main__':
-    # reviews, labels = readData()
-    # reviews, labels = dataAugmention(reviews, labels)
-    reviews, labels = [], []
-    with open('./data/train_augmented.txt', 'r', encoding='utf-8') as file:
-        for line in file.readlines():
-            l, r = line.split('\t')
-            labels.append(int(l))
-            reviews.append(r)
-    # reviews, labels = dataAugmention(reviews, labels)
+    teams_reviews, sent_reviews, teams_labels, sent_labels = readData()
     
-    vectorizer = TfidfVectorizer()
-    print('vectorizing')
-    X = vectorizer.fit_transform(reviews).toarray()
-    train_texts, test_texts, train_labels, test_labels = train_test_split(X, labels, stratify=labels)
+    teams = train_test_split(teams_reviews, teams_labels, stratify=teams_labels)
+    sent = train_test_split(sent_reviews, sent_labels, stratify=sent_labels)
     
-    # print('training')
-    # clf = svm.SVC(kernel='linear')
-    # clf.fit(train_texts, train_labels)
-    # pickle.dump(clf, open('results/trained_svm_model.bin', 'wb'))
+    test_teams_texts, test_teams_labels = preProcessing(teams[1]), teams[3]
+    test_sent_texts, test_sent_labels = preProcessing(sent[1]), sent[3]
+    
+    teams_save_path = 'results/trained_svm_model_teams.bin'
+    sent_save_path = 'results/trained_svm_model_sent.bin'
+    teams_vectorizer_save_path = 'results/trained_teams_vectorizer.bin'
+    sent_vectorizer_save_path = 'results/trained_sent_vectorizer.bin'
+    
+    # print('Augmenting train dataset...')
+    # train_teams_texts, train_teams_labels = dataAugmentation(teams[0], teams[2])
+    # train_sent_texts, train_sent_labels = dataAugmentation(sent[0], sent[2])
+    # print('Vectorizing...')
+    # teams_vectorizer = TfidfVectorizer(max_features=3000)
+    # V_train_teams_texts = teams_vectorizer.fit_transform(train_teams_texts).toarray()
+    # V_test_teams_texts = teams_vectorizer.transform(test_teams_texts).toarray()
+    # pickle.dump(teams_vectorizer, open(teams_vectorizer_save_path, 'wb'))
+    
+    # sent_vectorizer = TfidfVectorizer(max_features=3000)
+    # V_train_sent_texts = sent_vectorizer.fit_transform(train_sent_texts).toarray()
+    # pickle.dump(sent_vectorizer, open(sent_vectorizer_save_path, 'wb'))
+    
+    
+    # teams_clf = svm.SVC(kernel='linear')
+    # sent_clf = svm.SVC(kernel='linear')
+    
+    # print('Training Model for Teams Classification...')
+    # teams_clf.fit(V_train_teams_texts, train_teams_labels)
+    # pickle.dump(teams_clf, open(teams_save_path, 'wb'))
 
-    print('predicting')
-    loaded_clf = pickle.load(open('results/trained_svm_model.bin', 'rb'))
-    # pred = loaded_clf.predict(test_texts)
-    # back_testing = loaded_clf.predict(train_texts)
-    # print(classification_report(test_labels, pred))
-    new_test = ['金塊 冠軍 ！','金塊','湖人 很穩', '阿肥衝阿!', '勇士衛冕很穩', '咖哩是要全隊花心思去防守的，不可能只有范德標']
-    nt = []
-    for t in new_test:
-        seg = ' '.join(jieba.cut(t))
-        nt.append(seg)
-    vectored = vectorizer.transform(nt).toarray()
-    print([LabeltoTeamsDict[i] for i in loaded_clf.predict(vectored)])
-    # train_features = extractFeatures(train_texts)
-    # test_features = extractFeatures(test_texts)
+    # print('Training Model for Sentiment...')
+    # sent_clf.fit(V_train_sent_texts, train_sent_labels)
+    # pickle.dump(sent_clf, open(sent_save_path, 'wb'))
     
-    # train_features = encodeTexts(train_texts)
-    # test_features = encodeTexts(test_texts)
-    # clf = svm.SVC(kernel='linear')
-    # clf.fit(train_features, train_labels)
-    # pickle.dump(clf, open('results/trained_svm_model.bin', 'wb'))
+
+    print('Testing Teams Classification Model...')
+    teams_loaded_vectorizer = pickle.load(open(teams_vectorizer_save_path, 'rb'))
+    teams_loaded_clf = pickle.load(open(teams_save_path, 'rb'))
     
-    # loaded_clf = pickle.load(open('results/trained_svm_model.bin', 'rb'))
-    # pred = loaded_clf.predict(test_features)
-    # print(classification_report(test_labels, pred))
+    V_test_teams_texts = teams_loaded_vectorizer.transform(test_teams_texts).toarray()
+    teams_pred = teams_loaded_clf.predict(V_test_teams_texts)
+    print(classification_report(test_teams_labels, teams_pred))
     
-    # new_text = ['太陽最近很強喔', '湖人要贏了吧，金塊要怎麼贏?', '綠seafood要出招了']
-    # inference_features = encodeTexts(new_text)
-    # infer = loaded_clf.predict(inference_features)
-    # print([LabeltoTeamsDict[i] for i in infer])
+    print('Testing Sentiment Model...')
+    sent_loaded_vectorizer = pickle.load(open(sent_vectorizer_save_path, 'rb'))
+    sent_loaded_clf = pickle.load(open(sent_save_path, 'rb'))
+    
+    V_test_sent_texts = sent_loaded_vectorizer.transform(test_sent_texts).toarray()
+    sent_pred = sent_loaded_clf.predict(V_test_sent_texts)
+    print(classification_report(test_sent_labels, sent_pred))
+    
+    print('Predicting...')
+    new_test = ['金塊 冠軍 ！','金塊','湖人 很穩', '阿肥今天要加油欸', '勇士衛冕很穩', '咖哩是要全隊花心思去防守的，不可能只有范德標']
+    
+    nt = preProcessing(new_test)
+    teams_vectorized = teams_loaded_vectorizer.transform(nt).toarray()
+    sent_vectorized = sent_loaded_vectorizer.transform(nt).toarray()
+    
+    print([LabeltoTeamsDict[i] for i in teams_loaded_clf.predict(teams_vectorized)])
+    print([LabeltoSentDict[i] for i in sent_loaded_clf.predict(sent_vectorized)])

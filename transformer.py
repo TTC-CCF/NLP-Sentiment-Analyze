@@ -1,10 +1,7 @@
 import torch
 from transformers import (
-    AutoTokenizer,
     XLNetTokenizer,
-    AutoModel,
     XLNetForSequenceClassification,
-    BertModel,
     AdamW, 
     logging)
 from torch.utils.data import DataLoader
@@ -18,13 +15,17 @@ from params import (
     save_path,
     hidden_layer_size,
     )
-from transformers import get_scheduler
 from tqdm import tqdm
-from loadData import readData, dataAugmention
+from loadData import readData, dataAugmentation
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 
 logging.set_verbosity_error()
+
+model = XLNetForSequenceClassification.from_pretrained(model_name, num_labels=NUM_LABELS)
+tokenizer = XLNetTokenizer.from_pretrained(model_name)
+    
+
 
 class ReviewsDataset(torch.utils.data.Dataset):
     def __init__(self, encodings, labels):
@@ -38,26 +39,8 @@ class ReviewsDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.labels)
-    
-# class FineTuneModel(torch.nn.Module):
-#     def __init__(self, num_labels):
-#         super(FineTuneModel, self).__init__()
-#         self.num_labels = num_labels
-#         self.model = XLNetModel.from_pretrained(model_name, num_labels=num_labels)
-#         self.classifier = torch.nn.Linear(hidden_layer_size, num_labels)
-#         self.lossFunc = torch.nn.CrossEntropyLoss()
-#         self.optimizer = AdamW(self.model.parameters(), lr=LEARN_RATE)
-    
-#         torch.nn.init.xavier_normal_(self.classifier.weight)
-        
-#     def forward(self, input_ids, attention_mask):
-#         last_hidden_state = self.model(input_ids, attention_mask)
-#         last_hidden_state = torch.mean(last_hidden_state[0], 1)
-#         logit = self.classifier(last_hidden_state)
-#         logit = torch.nn.functional.relu(logit)
-#         return logit
 
-def train(model):
+def train(model, train_loader):
     model.train()
     num_tr_step = 0
     total_loss = 0
@@ -81,7 +64,7 @@ def train(model):
     print(f'Average loss: {total_loss/num_tr_step}')
     torch.save(model.state_dict(), save_path)
 
-def validate(test_model):
+def validate(test_model, test_loader):
     test_model.eval() 
     predict = []
     g_true = []
@@ -98,48 +81,52 @@ def validate(test_model):
             
     print(classification_report(g_true, predict))
     
-    
+def preProcessing(reviews, labels):
+    encoded = tokenizer(reviews, padding=True, truncation=True, return_tensors='pt')
+    dataset = ReviewsDataset(encoded, labels)
+    loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
+    return loader
 
 if __name__ == '__main__':
-    model = XLNetForSequenceClassification.from_pretrained(model_name, num_labels=NUM_LABELS)
-    tokenizer = XLNetTokenizer.from_pretrained(model_name)
     
-    reviews, labels = [], []
-    with open('./data/train_augmented.txt', 'r', encoding='utf-8') as file:
-        for line in file.readlines():
-            l, r = line.split('\t')
-            labels.append(int(l))
-            reviews.append(r)
-    # reviews, labels = dataAugmention(reviews, labels)
-    print(f'Number of Data: {len(reviews)}')
-    train_texts, test_texts, train_labels, test_labels = train_test_split(reviews, labels, stratify=labels)
+    teams_reviews, sent_reviews, teams_labels, sent_labels = readData()
     
-    train_encoded = tokenizer(train_texts, padding=True, truncation=True, return_tensors='pt')
-    test_encoded = tokenizer(test_texts, padding=True, truncation=True, return_tensors='pt')
+    teams = train_test_split(teams_reviews, teams_labels, stratify=teams_labels)
+    sent = train_test_split(sent_reviews, sent_labels, stratify=sent_labels)
     
-    train_dataset = ReviewsDataset(train_encoded, train_labels)
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    print('Augmenting train dataset...')
+    # train data
+    train_teams_texts, train_teams_labels = dataAugmentation(teams[0], teams[2])
+    train_sent_texts, train_sent_labels = dataAugmentation(sent[0], sent[2])
     
-    test_dataset = ReviewsDataset(test_encoded, test_labels)
-    test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)    
+    # test data
+    test_teams_texts, test_teams_labels = teams[1], teams[3]
+    test_sent_texts, test_sent_labels = sent[1], sent[3]
+    
+    # build data into data loader
+    train_teams_loader = preProcessing(train_teams_texts, train_teams_labels)
+    test_teams_loader = preProcessing(test_teams_texts, test_teams_labels)
+    
+    train_sent_loader = preProcessing(train_sent_texts, train_sent_labels)
+    test_sent_loader = preProcessing(test_sent_texts, test_sent_labels)
+    
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
     
     optimizer = AdamW(model.parameters(), lr=LEARN_RATE)
     
-    num_training_steps = EPOCH * len(train_loader)
-    
-    
-    # train(model)
-    
+    print('Training...')
+    train(model, train_teams_loader)
+     
     with torch.no_grad():
         trained_state_dict = torch.load(save_path)
         test_model = XLNetForSequenceClassification.from_pretrained(model_name, num_labels=NUM_LABELS)
         test_model.load_state_dict(trained_state_dict)
         test_model.to(device)
         
-        validate(test_model)
+        print('Testing...')
+        validate(test_model, test_teams_loader)
         
         # use custom test case
         inference = ['太陽', '賽爾提克', '金塊這季進步很大，波特回歸補齊三分，勾登磨合了幾季這季也配合的不錯莫雷原本以為傷後會爛掉但看起來三分有以前的準度連季賽被別隊二陣血洗的爛替補也進入狀況了']
