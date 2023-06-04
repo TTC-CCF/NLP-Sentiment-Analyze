@@ -93,4 +93,5 @@ def loadValidate():
     
 if __name__ == '__main__':
     teams_reviews, sent_reviews, teams_labels, sent_labels = readData()
-    print(loadValidate()[0])
+    augmented_reviews, augmented_labels = dataAugmentation(teams_reviews, teams_labels)
+    print(len(augmented_reviews))
