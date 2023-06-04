@@ -74,6 +74,7 @@ if __name__ == '__main__':
     V_test_sent_texts = sent_loaded_vectorizer.transform(test_sent_texts).toarray()
     sent_pred = sent_loaded_clf.predict(V_test_sent_texts)
     print(classification_report(test_sent_labels, sent_pred))
+
     
     print('Testing on validating data...')
     v_teams_texts = teams_loaded_vectorizer.transform(v_reviews).toarray()
@@ -82,7 +83,6 @@ if __name__ == '__main__':
     sent_pred = sent_loaded_clf.predict(v_sent_texts)
     print('Teams:', classification_report(v_teams_labels, teams_pred))
     print('Sentiment:', classification_report(v_sent_labels, sent_pred))
-
     
     # print('Predicting...')
     # new_test = ['金塊 冠軍 ！','金塊','湖人 很穩', '阿肥今天要加油欸', '勇士衛冕很穩', '咖哩是要全隊花心思去防守的，不可能只有范德標']

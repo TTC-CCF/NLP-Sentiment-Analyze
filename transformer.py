@@ -19,6 +19,8 @@ from tqdm import tqdm
 from loadData import readData, dataAugmentation, loadValidate
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
+import numpy as np
+
 
 logging.set_verbosity_error()
 
@@ -42,6 +44,7 @@ def train(model, train_loader):
     model.train()
     num_tr_step = 0
     total_loss = 0
+    loss_process = []
     for iter in tqdm(range(EPOCH)):
         per_epoch_loss = 0
         for batch in train_loader:
@@ -57,9 +60,12 @@ def train(model, train_loader):
             num_tr_step += 1
         print(f'Epoch {iter+1} loss: {per_epoch_loss}')
         total_loss += per_epoch_loss
+        loss_process.append(per_epoch_loss)
     
     print(f'Average loss: {total_loss/num_tr_step}')
     torch.save(model.state_dict(), save_path)
+    np.save('./loss/aug_teams.npy', np.array(loss_process))
+    
 
 def validate(test_model, test_loader):
     test_model.eval() 
@@ -85,7 +91,6 @@ def preProcessing(reviews, labels):
     return loader
 
 if __name__ == '__main__':
-    
     teams_reviews, sent_reviews, teams_labels, sent_labels = readData()
     v_reviews, v_teams_labels, v_sent_labels = loadValidate()
     
@@ -118,7 +123,6 @@ if __name__ == '__main__':
     
     print('Training...')
     train(model, train_teams_loader)
-     
     with torch.no_grad():
         trained_state_dict = torch.load(save_path)
         test_model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=NUM_LABELS)

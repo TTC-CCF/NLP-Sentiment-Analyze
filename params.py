@@ -47,8 +47,8 @@ LabeltoTeamsDict = {
 }
 
 nba_synonyms = [
-    ['嘴綠', 'Green', 'Draymond Green', '格林', '綠師傅', '綠seafood', '母獅', '姆斯', '姆姆', '姆', '喇叭'],
-    ['Lebron', 'Lebron James', '18詹', 'LBJ', 'lbj', '喇叭詹', '老詹', '詹皇', '老漢'],
+    ['嘴綠', 'Green', 'Draymond Green', '格林', '綠師傅', '綠seafood'],
+    ['Lebron', 'Lebron James', '18詹', 'LBJ', 'lbj', '喇叭詹', '老詹', '詹皇', '老漢', '母獅', '姆斯', '姆姆', '姆', '喇叭'],
     ['勇', '勇士'],
     ['湖人', '湖', 'LA'],
     ['G', 'Game'],

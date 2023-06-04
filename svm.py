@@ -33,31 +33,31 @@ if __name__ == '__main__':
     teams_vectorizer_save_path = 'results/svm_trained_teams_vectorizer.bin'
     sent_vectorizer_save_path = 'results/svm_trained_sent_vectorizer.bin'
     
-    print('Augmenting train dataset...')
-    train_teams_texts, train_teams_labels = dataAugmentation(teams[0], teams[2])
-    train_sent_texts, train_sent_labels = dataAugmentation(sent[0], sent[2])
-    print(len(train_teams_texts))
-    print('Vectorizing...')
-    teams_vectorizer = TfidfVectorizer(max_features=2500)
-    V_train_teams_texts = teams_vectorizer.fit_transform(train_teams_texts).toarray()
-    V_test_teams_texts = teams_vectorizer.transform(test_teams_texts).toarray()
-    pickle.dump(teams_vectorizer, open(teams_vectorizer_save_path, 'wb'))
+    # print('Augmenting train dataset...')
+    # train_teams_texts, train_teams_labels = dataAugmentation(teams[0], teams[2])
+    # train_sent_texts, train_sent_labels = dataAugmentation(sent[0], sent[2])
+    # print(len(train_teams_texts))
+    # print('Vectorizing...')
+    # teams_vectorizer = TfidfVectorizer(max_features=2500)
+    # V_train_teams_texts = teams_vectorizer.fit_transform(train_teams_texts).toarray()
+    # V_test_teams_texts = teams_vectorizer.transform(test_teams_texts).toarray()
+    # pickle.dump(teams_vectorizer, open(teams_vectorizer_save_path, 'wb'))
     
-    sent_vectorizer = TfidfVectorizer(max_features=2500)
-    V_train_sent_texts = sent_vectorizer.fit_transform(train_sent_texts).toarray()
-    pickle.dump(sent_vectorizer, open(sent_vectorizer_save_path, 'wb'))
+    # sent_vectorizer = TfidfVectorizer(max_features=2500)
+    # V_train_sent_texts = sent_vectorizer.fit_transform(train_sent_texts).toarray()
+    # pickle.dump(sent_vectorizer, open(sent_vectorizer_save_path, 'wb'))
     
     
-    teams_clf = svm.SVC(kernel='linear')
-    sent_clf = svm.SVC(kernel='linear')
+    # teams_clf = svm.SVC(kernel='linear')
+    # sent_clf = svm.SVC(kernel='linear')
     
-    print('Training Model for Teams Classification...')
-    teams_clf.fit(V_train_teams_texts, train_teams_labels)
-    pickle.dump(teams_clf, open(teams_save_path, 'wb'))
+    # print('Training Model for Teams Classification...')
+    # teams_clf.fit(V_train_teams_texts, train_teams_labels)
+    # pickle.dump(teams_clf, open(teams_save_path, 'wb'))
 
-    print('Training Model for Sentiment...')
-    sent_clf.fit(V_train_sent_texts, train_sent_labels)
-    pickle.dump(sent_clf, open(sent_save_path, 'wb'))
+    # print('Training Model for Sentiment...')
+    # sent_clf.fit(V_train_sent_texts, train_sent_labels)
+    # pickle.dump(sent_clf, open(sent_save_path, 'wb'))
     
 
     print('Testing Teams Classification Model...')

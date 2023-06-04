@@ -90,8 +90,18 @@ def loadValidate():
     return reviews, teams_labels, sent_labels
 
 
+def showLabelsFreq(labels):
+    n = len(labels)
+    l_dict = collections.Counter(labels)
+    sum = 0.0
+    for l, freq in l_dict.items():
+        print(f'{l}      {"{:.2f}".format(freq*100/n)}%')
+        
     
 if __name__ == '__main__':
     teams_reviews, sent_reviews, teams_labels, sent_labels = readData()
     augmented_reviews, augmented_labels = dataAugmentation(teams_reviews, teams_labels)
-    print(len(augmented_reviews))
+    showLabelsFreq(augmented_labels)
+    augmented_reviews, augmented_labels = dataAugmentation(sent_reviews, sent_labels)
+    
+    showLabelsFreq(augmented_labels)
