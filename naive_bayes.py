@@ -33,34 +33,36 @@ if __name__ == '__main__':
     teams_vectorizer_save_path = 'results/nb_trained_teams_vectorizer.bin'
     sent_vectorizer_save_path = 'results/nb_trained_sent_vectorizer.bin'
     
-    # print('Augmenting train dataset...')
-    # train_teams_texts, train_teams_labels = dataAugmentation(teams[0], teams[2])
-    # train_sent_texts, train_sent_labels = dataAugmentation(sent[0], sent[2])
-    # print('Vectorizing...')
-    # teams_vectorizer = TfidfVectorizer(max_features=3000)
-    # V_train_teams_texts = teams_vectorizer.fit_transform(train_teams_texts).toarray()
-    # pickle.dump(teams_vectorizer, open(teams_vectorizer_save_path, 'wb'))
+    print('Augmenting train dataset...')
+    train_teams_texts, train_teams_labels = dataAugmentation(teams[0], teams[2])
+    train_sent_texts, train_sent_labels = dataAugmentation(sent[0], sent[2])
+    print('Vectorizing...')
+    teams_vectorizer = TfidfVectorizer(max_features=3000)
+    V_train_teams_texts = teams_vectorizer.fit_transform(train_teams_texts).toarray()
+    pickle.dump(teams_vectorizer, open(teams_vectorizer_save_path, 'wb'))
     
-    # sent_vectorizer = TfidfVectorizer(max_features=3000)
-    # V_train_sent_texts = sent_vectorizer.fit_transform(train_sent_texts).toarray()
-    # pickle.dump(sent_vectorizer, open(sent_vectorizer_save_path, 'wb'))
+    sent_vectorizer = TfidfVectorizer(max_features=3000)
+    V_train_sent_texts = sent_vectorizer.fit_transform(train_sent_texts).toarray()
+    pickle.dump(sent_vectorizer, open(sent_vectorizer_save_path, 'wb'))
     
     
-    # teams_clf = GaussianNB()
-    # sent_clf = GaussianNB()
+    teams_clf = GaussianNB()
+    sent_clf = GaussianNB()
     
-    # print('Training Model for Teams Classification...')
-    # teams_clf.fit(V_train_teams_texts, train_teams_labels)
-    # pickle.dump(teams_clf, open(teams_save_path, 'wb'))
+    print('Training Model for Teams Classification...')
+    teams_clf.fit(V_train_teams_texts, train_teams_labels)
+    pickle.dump(teams_clf, open(teams_save_path, 'wb'))
 
-    # print('Training Model for Sentiment...')
-    # sent_clf.fit(V_train_sent_texts, train_sent_labels)
-    # pickle.dump(sent_clf, open(sent_save_path, 'wb'))
+    print('Training Model for Sentiment...')
+    sent_clf.fit(V_train_sent_texts, train_sent_labels)
+    pickle.dump(sent_clf, open(sent_save_path, 'wb'))
     
 
     print('Testing Teams Classification Model...')
     teams_loaded_vectorizer = pickle.load(open(teams_vectorizer_save_path, 'rb'))
     teams_loaded_clf = pickle.load(open(teams_save_path, 'rb'))
+    print(teams_loaded_clf.get_params())
+
     
     V_test_teams_texts = teams_loaded_vectorizer.transform(test_teams_texts).toarray()
     teams_pred = teams_loaded_clf.predict(V_test_teams_texts)
@@ -69,6 +71,7 @@ if __name__ == '__main__':
     print('Testing Sentiment Model...')
     sent_loaded_vectorizer = pickle.load(open(sent_vectorizer_save_path, 'rb'))
     sent_loaded_clf = pickle.load(open(sent_save_path, 'rb'))
+    print(sent_loaded_clf.get_params())
     
     V_test_sent_texts = sent_loaded_vectorizer.transform(test_sent_texts).toarray()
     sent_pred = sent_loaded_clf.predict(V_test_sent_texts)

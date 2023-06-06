@@ -12,6 +12,7 @@ from params import (
     NUM_LABELS,
     BATCH_SIZE,
     LabeltoTeamsDict,
+    LabeltoSentDict,
     model_name,
     save_path,
     )
@@ -24,8 +25,8 @@ import numpy as np
 
 logging.set_verbosity_error()
 
-model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=NUM_LABELS)
-tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForSequenceClassification.from_pretrained('bert-base-chinese', num_labels=NUM_LABELS)
+tokenizer = AutoTokenizer.from_pretrained('bert-base-chinese')
 
 class ReviewsDataset(torch.utils.data.Dataset):
     def __init__(self, encodings, labels):
@@ -44,28 +45,41 @@ def train(model, train_loader):
     model.train()
     num_tr_step = 0
     total_loss = 0
+    accu_process = []
     loss_process = []
     for iter in tqdm(range(EPOCH)):
         per_epoch_loss = 0
+        per_epoch_size = 0
+        accu = 0
         for batch in train_loader:
             batch = {key: val.to(device) for key, val in batch.items()}
-        
+            labels = batch['labels']
             optimizer.zero_grad()
             outputs = model(**batch)
+            prob = torch.nn.functional.softmax(outputs.logits, dim=-1)
+            predict = torch.argmax(prob, dim=-1)
             loss = outputs.loss
+
             per_epoch_loss += loss.item()
-            
+            accu += (labels==predict).sum().item()
+            per_epoch_size += len(labels)
+
             loss.backward()
             optimizer.step()
-            num_tr_step += 1
-        print(f'Epoch {iter+1} loss: {per_epoch_loss}')
+            
+        accu = accu/per_epoch_size
+        average_loss = per_epoch_loss/per_epoch_size
+        print(f'Epoch {iter+1} Accuracy: {accu}')
+        print(f'Epoch {iter+1} Average loss: {average_loss}')
+        num_tr_step += per_epoch_size
         total_loss += per_epoch_loss
-        loss_process.append(per_epoch_loss)
+        loss_process.append(average_loss)
+        accu_process.append(accu)
     
     print(f'Average loss: {total_loss/num_tr_step}')
     torch.save(model.state_dict(), save_path)
-    np.save('./loss/aug_teams.npy', np.array(loss_process))
-    
+    np.save('./loss/aug_sent.npy', np.array(loss_process))
+    np.save('./accu/aug_sent.npy', np.array(accu_process))
 
 def validate(test_model, test_loader):
     test_model.eval() 
@@ -82,7 +96,7 @@ def validate(test_model, test_loader):
             g_true += list(batch['labels'].detach().cpu().numpy())
             predict += list(big_idx.detach().cpu().numpy())
             
-    print(classification_report(g_true, predict))
+    print(classification_report(g_true, predict, digits=4))
     
 def preProcessing(reviews, labels):
     encoded = tokenizer(reviews, padding=True, truncation=True, return_tensors='pt')
@@ -99,8 +113,8 @@ if __name__ == '__main__':
     
     print('Augmenting train dataset...')
     # train data
-    train_teams_texts, train_teams_labels = dataAugmentation(teams[0], teams[2])
-    train_sent_texts, train_sent_labels = dataAugmentation(sent[0], sent[2])
+    train_teams_texts, train_teams_labels =teams[0], teams[2] #dataAugmentation(teams[0], teams[2])
+    train_sent_texts, train_sent_labels = sent[0], sent[2] #dataAugmentation(sent[0], sent[2])
     
     # test data
     test_teams_texts, test_teams_labels = teams[1], teams[3]
@@ -119,10 +133,10 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
     
-    optimizer = AdamW(model.parameters(), lr=LEARN_RATE)
+    optimizer = AdamW(model.parameters(), lr=LEARN_RATE, no_deprecation_warning=True)
     
-    print('Training...')
-    train(model, train_teams_loader)
+    # print('Training...')
+    # train(model, train_sent_loader)
     with torch.no_grad():
         trained_state_dict = torch.load(save_path)
         test_model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=NUM_LABELS)
@@ -134,10 +148,10 @@ if __name__ == '__main__':
         
         
         print('Testing on validate data...')
-        validate(test_model, test_teams_loader)
+        validate(test_model, validate_teams_loader)
         
         # use custom test case
-        inference = ['太陽', '賽爾提克', '金塊這季進步很大，波特回歸補齊三分，勾登磨合了幾季這季也配合的不錯莫雷原本以為傷後會爛掉但看起來三分有以前的準度連季賽被別隊二陣血洗的爛替補也進入狀況了']
+        inference = ['阿肥大三元根本信手拈來', '杰倫快離開吧…跟著鐵圖姆沒前途的', '姆斯最棒棒了']
         encoded = tokenizer(inference, padding = True, truncation=True, return_tensors='pt')
         input_ids = encoded['input_ids'].to(device)
         attention_mask = encoded['attention_mask'].to(device)

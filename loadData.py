@@ -29,7 +29,7 @@ def readData():
             teams_labels += teams
             sent_labels += sent
             
-        print(f'{review_file} contains {len(text)} reviews, {len(teams)} labels')
+        # print(f'{review_file} contains {len(text)} reviews, {len(teams)} labels')
         
             
     
