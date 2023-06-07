@@ -4,7 +4,7 @@ EPOCH = 10
 NUM_LABELS = 31
 model_name = 'bert-base-chinese'
 hidden_layer_size = 768
-save_path = './results/trained_model_bert_chinese.bin'
+save_path = './results/unaug-trained_model_bert_chinese.bin'
 
 LabeltoSentDict = {
     0: 'Neutral or Irrelavant',
